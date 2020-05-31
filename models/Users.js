@@ -10,9 +10,13 @@ const ContactSchema = new Schema({
   },
   email: {
     type: String,
-    required: true
+    required: true,
   },
-  messages: [MessageSchema]
+  userId: {
+    type: String
+  },
+  about: String,
+  messages: [[MessageSchema]]
 })
 
 const UserSchema = new Schema({

@@ -4,10 +4,9 @@ const MessageSchema = new Schema({
   from: {
     type: String  //email
   },
-  to: {
-    type: String //email
-  },
-  read: Date,
+  msg: String,
+  sent: Date,
+  delivered: Date,
   seen: Date
 })
 
