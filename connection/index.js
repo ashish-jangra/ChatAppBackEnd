@@ -12,6 +12,7 @@ const chatsRouter = require('./chatsRouter/chatsRouter');
 const contactsRouter = require('./contactsRouter/contactsRouter');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
+const mediaRouter = require('./mediaRouter/mediaRouter');
 const authJWTKey = require('./secret').authJWTKey;
 
 // let admin = new User({
@@ -56,6 +57,7 @@ app.use(corsMiddleware);
 app.use(authRouter);
 app.use('/chats', chatsRouter);
 app.use('/contacts', contactsRouter);
+app.use('/media', mediaRouter);
 
 const server=app.listen(4000,()=>{
 	console.log("Listening to request on port 4000");
@@ -65,7 +67,7 @@ const server=app.listen(4000,()=>{
 app.use(express.static('public'));
 
 
-const addMessage = (user, contact, msg) => {
+const addMessage = (user, contact, msg, setUnread) => {
   let ct = user.contacts.find(item=> item.email === contact.email);
   if(!ct){
     console.log("could not find", contact.email,"in",user.contacts)
@@ -78,6 +80,8 @@ const addMessage = (user, contact, msg) => {
     })
   }
   else{
+    if(setUnread)
+      ct.unreadMessages = (ct.unreadMessages || 0) + 1;
     if(!ct.messages.length){
       ct.messages = [[msg]]
     }
@@ -95,14 +99,38 @@ const updateMessageInDatabase = async(from, to, msg)=>{
   try{
     to = await User.findById(to._id);
     from = await User.findById(from._id);
+    to.unreadMessages = (to.unreadMessages || 0) + 1;
     addMessage(from, to, msg);
-    addMessage(to, from, msg);
-    await from.save();
-    await to.save();
-    console.log("saved messages to db")
+    addMessage(to, from, msg, true);
+    from = await from.save();
+    to = await to.save();
+    console.log("saved messages to db");
   }
   catch(err){
     console.log("could not save msgs to db", err.message);
+  }
+}
+
+const clearUnreadMessages = async (user, contactId) => {
+  // update sender as well about read messages
+  let contact = user.contacts.find(contact => contact.userId === contactId);
+  if(!contact)
+    throw new Error("No sender found in user contact list");
+  if(contact){
+    contact.unreadMessages = 0;
+    let flag = true;
+    for(let i=contact.messages.length-1;i>=0 && flag;i--){
+      let messagesArray = contact.messages[i];
+      for(let j=messagesArray.length-1;j>=0&&flag;j--){
+        if(messagesArray[j].seen)
+          flag = false;
+        else{
+          messagesArray[j].seen = new Date();
+        }
+      }
+    }
+    let data = await user.save();
+    console.log("cleared unread messages of", contact.email, data.contacts.find(contact => contact.userId === contactId).unreadMessages)
   }
 }
 
@@ -126,7 +154,7 @@ io.on('connection', async (socket)=>{
     console.log("connection error", err.message);
     return socket.disconnect();
   }
-  // console.log('made socket connection ',socket.id, authData);
+  console.log('made socket connection ',socket.id, authData.email);
   socket.on('joinRoom', (data)=>{
     socket.join(data.groupName);
   })
@@ -144,13 +172,25 @@ io.on('connection', async (socket)=>{
         throw "No receiver found";
       let newMessage = {
         from: authData.email,
+        type: data.type,
         msg: data.msg,
         sent: new Date()
       };
+      console.log("addmessage", newMessage);
       if(contact.currentSocketId && io.sockets.sockets[contact.currentSocketId]){
         io.sockets.sockets[contact.currentSocketId].emit('receiveMessage', newMessage);
       }
       updateMessageInDatabase(user, contact, newMessage);
+    }
+    catch(err){
+      console.log("sending personal message failed", err.message, data);
+    }
+  })
+  socket.on('clearUnreadMessages', data=>{
+    console.log('clear unread messages of', data.userId)
+    try{
+      clearUnreadMessages(user, data.userId);
+      // update sender about messages read
     }
     catch(err){
       console.log("sending personal message failed", err.message, data);

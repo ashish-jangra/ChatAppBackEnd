@@ -16,7 +16,11 @@ const ContactSchema = new Schema({
     type: String
   },
   about: String,
-  messages: [[MessageSchema]]
+  messages: [[MessageSchema]],
+  unreadMessages: {
+    type: Number,
+    default: 0
+  }
 })
 
 const UserSchema = new Schema({

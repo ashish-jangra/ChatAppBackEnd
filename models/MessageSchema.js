@@ -5,6 +5,7 @@ const MessageSchema = new Schema({
     type: String  //email
   },
   msg: String,
+  type: String,
   sent: Date,
   delivered: Date,
   seen: Date

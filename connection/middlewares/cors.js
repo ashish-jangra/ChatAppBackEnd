@@ -1,4 +1,4 @@
-const whiteList = [undefined, 'http://localhost:3000', 'http://192.168.43.11:3000', 'https://localhost:3000', 'https://192.168.43.11:3000'];
+const whiteList = [undefined, 'http://127.0.0.1:5500' , 'http://localhost:3000', 'http://192.168.43.11:3000', 'https://localhost:3000', 'https://192.168.43.11:3000'];
 
 module.exports = function(req,res,next){
   let origin = req.headers.origin;
