@@ -42,6 +42,10 @@ const UserSchema = new Schema({
   groups: [GroupSchema],
   currentSocketId: {
     type: String
+  },
+  profilePic: {
+    type: String,
+    default: ''
   }
 })
 

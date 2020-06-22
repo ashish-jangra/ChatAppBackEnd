@@ -117,7 +117,8 @@ const clearUnreadMessages = async (user, contactId) => {
   if(!contact)
     throw new Error("No sender found in user contact list");
   if(contact){
-    contact.unreadMessages = 0;
+    // contact.unreadMessages = 0;
+    contact.set({"unreadMessages": 0})
     let flag = true;
     for(let i=contact.messages.length-1;i>=0 && flag;i--){
       let messagesArray = contact.messages[i];
@@ -129,6 +130,7 @@ const clearUnreadMessages = async (user, contactId) => {
         }
       }
     }
+    // contact.markModified('unreadMessages')
     let data = await user.save();
     console.log("cleared unread messages of", contact.email, data.contacts.find(contact => contact.userId === contactId).unreadMessages)
   }
@@ -165,17 +167,22 @@ io.on('connection', async (socket)=>{
       sent: new Date()
     })
   })
-  socket.on('sendPersonalMessage', async (data)=>{
+  socket.on('sendPersonalMessage', async (data, ack)=>{
     try{
       let contact = await User.findById(data.to);
       if(!data.to || !contact)
         throw "No receiver found";
+      let msgId = new mongoose.mongo.ObjectId();
       let newMessage = {
         from: authData.email,
         type: data.type,
         msg: data.msg,
-        sent: new Date()
+        sent: new Date(),
+        _id: msgId
       };
+      ack({
+        _id: msgId
+      })
       console.log("addmessage", newMessage);
       if(contact.currentSocketId && io.sockets.sockets[contact.currentSocketId]){
         io.sockets.sockets[contact.currentSocketId].emit('receiveMessage', newMessage);
@@ -186,14 +193,16 @@ io.on('connection', async (socket)=>{
       console.log("sending personal message failed", err.message, data);
     }
   })
-  socket.on('clearUnreadMessages', data=>{
+  socket.on('clearUnreadMessages', (data, ack) => {
     console.log('clear unread messages of', data.userId)
     try{
       clearUnreadMessages(user, data.userId);
+      ack('cleared unread messages')
       // update sender about messages read
     }
     catch(err){
-      console.log("sending personal message failed", err.message, data);
+      ack('failed to clear unread messages')
+      console.log("clearing unread message failed", err.message, data);
     }
   })
 });
