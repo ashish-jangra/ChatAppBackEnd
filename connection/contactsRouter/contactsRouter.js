@@ -103,6 +103,26 @@ contactsRouter.post('/addContact', async (req,res)=>{
   }
 })
 
+contactsRouter.get('/contactInfo', async (req,res)=>{
+  try{
+    if(!req.query || !req.query.userId)
+      throw new Error('no userId mentioned')
+    let user = await User.findById(req.query.userId);
+    if(!user)
+      throw new Error('no user found');
+    res.json({
+      name: user.name,
+      about: user.about,
+      email: user.email
+    })
+  }
+  catch(err){
+    res.status(404).json({
+      error: true,
+      message: err.message
+    })
+  }
+})
 
 
 module.exports = contactsRouter;

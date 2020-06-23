@@ -1,6 +1,7 @@
 const router = require("router");
 const multer = require("multer");
 const fs = require("fs");
+const sharp = require('sharp');
 const path = require("path");
 const crypto = require("crypto");
 const User = require("../../models/Users");
@@ -118,13 +119,14 @@ mediaRouter.get('/getProfilePic', async (req,res)=>{
       throw new Error();
     console.log("request to get profile pic of", user.name, "by", req.cookies.email);
     let filePath = path.resolve(__dirname, "../images/"+user.profilePic);
-    let imgStream = fs.createReadStream(filePath);
-    imgStream.on('open', ()=>{
-      imgStream.pipe(res);
-    })
-    imgStream.on('error', (err)=> {
-      throw new Error(err.message)
-    })
+    let imgStream;
+    if(req.query.width && req.query.height){
+      imgStream = sharp(filePath).resize(128,128)
+    }
+    else{
+      imgStream = fs.createReadStream(filePath);
+    }
+    imgStream.pipe(res)
   }
   catch(err){
     res.status('404').end(err.message || 'profile pic not found');
