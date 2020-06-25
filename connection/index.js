@@ -70,8 +70,9 @@ let options = {
   cert: fs.readFileSync(__dirname+'/selfsigned.crt')
 }
 
-const httpServer = http.createServer(app).listen(80);
-const server = https.createServer(options, app).listen(4000);
+const server = https.createServer(options, app).listen(4000, ()=>{
+  console.log("Listening to request on port 4000");
+});
 
 // const server = app.listen(4000, () => {
 //   console.log("Listening to request on port 4000");
