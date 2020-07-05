@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
-const MessageSchema = require('./MessageSchema');
 const GroupSchema = require('./GroupSchema');
 
 const ContactSchema = new Schema({
@@ -16,7 +15,7 @@ const ContactSchema = new Schema({
     type: String
   },
   about: String,
-  messages: [[MessageSchema]],
+  messagesId: Schema.ObjectId,
   unreadMessages: {
     type: Number,
     default: 0

@@ -7,6 +7,7 @@ const MemberSchema = new Schema({
 });
 
 const GroupMessages = new Schema({
+  msg: String,
   seenBy: [MemberSchema],
   deliveredTo: [MemberSchema]
 })
