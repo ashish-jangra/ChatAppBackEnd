@@ -15,6 +15,7 @@ const contactsRouter = require("./contactsRouter/contactsRouter");
 const cookieParser = require("cookie-parser");
 const jwt = require("jsonwebtoken");
 const mediaRouter = require("./mediaRouter/mediaRouter");
+const Messages = require("../models/Messages");
 const authJWTKey = require("./secret").authJWTKey;
 
 // let admin = new User({
@@ -81,38 +82,56 @@ const server = https.createServer(options, app).listen(4000, ()=>{
 //Static files
 app.use(express.static("public"));
 
-const addMessage = (user, contact, msg, setUnread) => {
+const addMessage = async (user, contact, msg, setUnread) => {
   let ct = user.contacts.find((item) => item.email === contact.email);
-  if (!ct) {
-    console.log("could not find", contact.email, "in", user.contacts);
-    user.contacts.push({
-      name: contact.name,
-      email: contact.email,
-      userId: contact._id,
-      about: contact.about,
-      messages: [[msg]],
-    });
-  } else {
-    if (setUnread) ct.unreadMessages = (ct.unreadMessages || 0) + 1;
-    if (!ct.messages.length) {
-      ct.messages = [[msg]];
-    } else {
-      let lastMessageArray = ct.messages[ct.messages.length - 1];
-      if (lastMessageArray.length < 50) lastMessageArray.push(msg);
-      else ct.messages.push([msg]);
-    }
+  if(!ct){
+    return console.log("contact not found");
   }
+  let messages = await Messages.findById(ct.messagesId);
+  if(!messages)
+    throw new Error("no msgs record found")
+  // console.log("found msgs record", messages)
+  // messages.messages = messages.messages || [];
+  messages.messages.push(msg);
+  if(setUnread){
+    let ct = contact.contacts.find(item => item.email === user.email);
+    if(ct){
+      ct.unreadMessages = (ct.unreadMessages || 0) + 1;
+    }
+    contact.save();
+  }
+  messages.save();  
+  // if (!ct) {
+  //   console.log("could not find", contact.email, "in", user.contacts);
+  //   user.contacts.push({
+  //     name: contact.name,
+  //     email: contact.email,
+  //     userId: contact._id,
+  //     about: contact.about,
+  //     messages: [[msg]],
+  //   });
+  // } else {
+  //   if (setUnread) ct.unreadMessages = (ct.unreadMessages || 0) + 1;
+  //   if (!ct.messages.length) {
+  //     ct.messages = [[msg]];
+  //   } else {
+  //     let lastMessageArray = ct.messages[ct.messages.length - 1];
+  //     if (lastMessageArray.length < 50) lastMessageArray.push(msg);
+  //     else ct.messages.push([msg]);
+  //   }
+  // }
 };
+
 
 const updateMessageInDatabase = async (from, to, msg) => {
   try {
-    to = await User.findById(to._id);
-    from = await User.findById(from._id);
-    to.unreadMessages = (to.unreadMessages || 0) + 1;
-    addMessage(from, to, msg);
-    addMessage(to, from, msg, true);
-    from = await from.save();
-    to = await to.save();
+    // to = await User.findById(to._id);
+    // from = await User.findById(from._id);
+    // to.unreadMessages = (to.unreadMessages || 0) + 1;
+    addMessage(from, to, msg, true);
+    // addMessage(to, from, msg, true);
+    // from = await from.save();
+    // to = await to.save();
     console.log("saved messages to db");
   } catch (err) {
     console.log("could not save msgs to db", err.message);
@@ -121,29 +140,39 @@ const updateMessageInDatabase = async (from, to, msg) => {
 
 const clearUnreadMessages = async (user, contactId) => {
   // update sender as well about read messages
-  let contact = user.contacts.find((contact) => contact.userId === contactId);
-  if (!contact) throw new Error("No sender found in user contact list");
-  if (contact) {
-    // contact.unreadMessages = 0;
-    contact.set({ unreadMessages: 0 });
-    let flag = true;
-    for (let i = contact.messages.length - 1; i >= 0 && flag; i--) {
-      let messagesArray = contact.messages[i];
-      for (let j = messagesArray.length - 1; j >= 0 && flag; j--) {
-        if (messagesArray[j].seen) flag = false;
-        else {
-          messagesArray[j].seen = new Date();
+  try{
+    let contact = user.contacts.find((contact) => contact.userId === contactId);
+    if (!contact) throw new Error("No sender found in user contact list");
+    if (contact) {
+      contact.unreadMessages = 0;
+    user.save()
+      // contact.set({ unreadMessages: 0 });
+      let messages = await Messages.findById(contact.messagesId);
+      if(!messages || !messages.messages || !messages.messages.length)
+        return;
+      // let flag = true;
+      for (let i = messages.messages.length - 1; i >= 0; i--) {
+        let msg = messages.messages[i];
+        if(!msg.seen){
+          msg.seen = new Date();
+        }
+        else{
+          break;
         }
       }
+      messages.save();
+      // // contact.markModified('unreadMessages')
+      // let data = await user.save();
+      // console.log(
+      //   "cleared unread messages of",
+      //   contact.email,
+      //   data.contacts.find((contact) => contact.userId === contactId)
+      //     .unreadMessages
+      // );
     }
-    // contact.markModified('unreadMessages')
-    let data = await user.save();
-    console.log(
-      "cleared unread messages of",
-      contact.email,
-      data.contacts.find((contact) => contact.userId === contactId)
-        .unreadMessages
-    );
+  }
+  catch(err){
+    console.log("error while clearing unread msgs", err.message);
   }
 };
 
@@ -179,7 +208,7 @@ io.on("connection", async (socket) => {
   socket.on("sendPersonalMessage", async (data, ack) => {
     try {
       let contact = await User.findById(data.to);
-      if (!data.to || !contact) throw "No receiver found";
+      if (!data.to || !contact) throw new Error("No receiver found");
       let msgId = new mongoose.mongo.ObjectId();
       let newMessage = {
         from: authData.email,
