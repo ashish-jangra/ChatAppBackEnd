@@ -43,7 +43,7 @@ contactsRouter.get('/getContacts', async (req,res)=>{
     let recentContacts = [];
     for(let i=0; i<contacts.length; i++){
       let contact = contacts[i];
-      let messages = await Messages.findById(contact.messagesId);
+      let messages = await Messages.findById(contact.messagesId) || {messages: []};
       messages = messages.messages.slice(-5);
       recentContacts.push({
         email: contact.email,
@@ -96,28 +96,32 @@ contactsRouter.post('/addContact', async (req,res)=>{
   try{
     let userId = req.cookies.userId;
     let user = await User.findById(userId);
-    let contact = await User.findOne({email: req.body.email} ,'_id about');
+    let contact = await User.findOne({email: req.body.email} ,'_id about contacts');
     if(!user || !contact)
       throw "User not found";
     if(user.contacts.find(ct => ct.email === contact.email))
       throw new Error("contact already exists");
     let messages = new Messages();
+    messages.messages = [];
     messages = await messages.save();
     let newContact = {
       name: req.body.name,
       email: req.body.email,
       userId: contact._id,
       about: contact.about,
-      messagesId: messages.messagesId
+      messagesId: messages._id
     };
     user.contacts.push(newContact);
+    console.log("added to user contact list");
+    console.log("contact: ", contact)
     contact.contacts.push({
       name: user.name,
       email: user.email,
       userId: user._id,
       about: user.about,
-      messagesId: messages.messagesId
+      messagesId: messages._id
     })
+    console.log("added to other user contact list")
     await user.save();
     await contact.save();
     res.json({
@@ -128,7 +132,7 @@ contactsRouter.post('/addContact', async (req,res)=>{
   catch(err){
     res.json({
       saved: false,
-      error: err
+      error: err.message
     })
   }
 })

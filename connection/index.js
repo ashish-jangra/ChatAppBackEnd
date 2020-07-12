@@ -17,6 +17,7 @@ const jwt = require("jsonwebtoken");
 const mediaRouter = require("./mediaRouter/mediaRouter");
 const Messages = require("../models/Messages");
 const authJWTKey = require("./secret").authJWTKey;
+const dbPassword = require("./secret").dbPassword;
 
 // let admin = new User({
 //   name: 'admin',
@@ -32,15 +33,18 @@ const authJWTKey = require("./secret").authJWTKey;
 //   console.log("could not save admin data",err);
 // })
 
+let connectionString = "mongodb://127.0.0.1:27017/ChatApp";
+// let connectionString = "mongodb://admin:"+ dbPassword +"@SG-Chatapp-36238.servers.mongodirector.com:27017/admin?ssl=true";
+
 //DB connection
 mongoose
-  .connect("mongodb://127.0.0.1:27017/ChatApp", {
+  .connect(connectionString, {
     useCreateIndex: true,
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
   .catch((err) => {
-    console.log("failed mongoose connect");
+    console.log("failed mongoose connect", err);
   });
 
 mongoose.connection
@@ -48,7 +52,7 @@ mongoose.connection
     console.log("successfully connected to database");
   })
   .on("error", (err) => {
-    console.log("error connecting to database");
+    console.log("error connecting to database", err);
   });
 //App setup
 const app = express();
