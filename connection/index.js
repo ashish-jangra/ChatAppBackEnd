@@ -70,18 +70,18 @@ app.use("/chats", chatsRouter);
 app.use("/contacts", contactsRouter);
 app.use("/media", mediaRouter);
 
-let options = {
-  key: fs.readFileSync(__dirname+'/selfsigned.key'),
-  cert: fs.readFileSync(__dirname+'/selfsigned.crt')
-}
+// let options = {
+//   key: fs.readFileSync(__dirname+'/selfsigned.key'),
+//   cert: fs.readFileSync(__dirname+'/selfsigned.crt')
+// }
 
-const server = https.createServer(options, app).listen(4000, ()=>{
-  console.log("Listening to request on port 4000");
-});
-
-// const server = app.listen(4000, () => {
+// const server = https.createServer(options, app).listen(4000, ()=>{
 //   console.log("Listening to request on port 4000");
 // });
+
+const server = app.listen(4000, () => {
+  console.log("Listening to request on port 4000");
+});
 
 //Static files
 app.use(express.static("public"));
