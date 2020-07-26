@@ -3,7 +3,7 @@ const authRouter = router();
 const jwt = require("jsonwebtoken");
 const User = require("../../models/Users");
 const Messages = require("../../models/Messages");
-const authJWTKey = require("../secret").authJWTKey;
+const authJWTKey = require("../secret/secret").authJWTKey;
 
 authRouter.post("/login", (req, res) => {
   console.log("login request", req.body)
