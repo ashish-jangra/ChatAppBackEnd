@@ -79,7 +79,7 @@ app.use("/media", mediaRouter);
 //   console.log("Listening to request on port 4000");
 // });
 
-const server = app.listen(4000, () => {
+const server = app.listen(process.env.PORT || 4000, () => {
   console.log("Listening to request on port 4000");
 });
 
