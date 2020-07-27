@@ -18,11 +18,14 @@ const mediaRouter = require("./mediaRouter/mediaRouter");
 const Messages = require("../models/Messages");
 const authJWTKey = require("./secret/secret").authJWTKey;
 const connectionString = require("./secret/secret").connectionString;
+// const bcrypt = require('bcrypt');
+// const saltRounds = 10;
 
 // let admin = new User({
+//   _id: "5f1f45b0a0ced83a5d202e28",
 //   name: 'admin',
 //   email: 'admin@chatapp.com',
-//   password: 'admin'
+//   password: bcrypt.hashSync('4dm1n@d3v', saltRounds)
 // });
 
 // admin.save()
@@ -104,38 +107,13 @@ const addMessage = async (user, contact, msg, setUnread) => {
     }
     contact.save();
   }
-  messages.save();  
-  // if (!ct) {
-  //   console.log("could not find", contact.email, "in", user.contacts);
-  //   user.contacts.push({
-  //     name: contact.name,
-  //     email: contact.email,
-  //     userId: contact._id,
-  //     about: contact.about,
-  //     messages: [[msg]],
-  //   });
-  // } else {
-  //   if (setUnread) ct.unreadMessages = (ct.unreadMessages || 0) + 1;
-  //   if (!ct.messages.length) {
-  //     ct.messages = [[msg]];
-  //   } else {
-  //     let lastMessageArray = ct.messages[ct.messages.length - 1];
-  //     if (lastMessageArray.length < 50) lastMessageArray.push(msg);
-  //     else ct.messages.push([msg]);
-  //   }
-  // }
+  messages.save();
 };
 
 
 const updateMessageInDatabase = async (from, to, msg) => {
   try {
-    // to = await User.findById(to._id);
-    // from = await User.findById(from._id);
-    // to.unreadMessages = (to.unreadMessages || 0) + 1;
     addMessage(from, to, msg, true);
-    // addMessage(to, from, msg, true);
-    // from = await from.save();
-    // to = await to.save();
     console.log("saved messages to db");
   } catch (err) {
     console.log("could not save msgs to db", err.message);
@@ -150,14 +128,12 @@ const clearUnreadMessages = async (user, contactId) => {
     if (contact) {
       contact.unreadMessages = 0;
     user.save()
-      // contact.set({ unreadMessages: 0 });
       let messages = await Messages.findById(contact.messagesId);
       if(!messages || !messages.messages || !messages.messages.length)
         return;
-      // let flag = true;
       for (let i = messages.messages.length - 1; i >= 0; i--) {
         let msg = messages.messages[i];
-        if(!msg.seen){
+        if(!msg.seen && msg.from !== user.email){
           msg.seen = new Date();
         }
         else{
@@ -165,14 +141,6 @@ const clearUnreadMessages = async (user, contactId) => {
         }
       }
       messages.save();
-      // // contact.markModified('unreadMessages')
-      // let data = await user.save();
-      // console.log(
-      //   "cleared unread messages of",
-      //   contact.email,
-      //   data.contacts.find((contact) => contact.userId === contactId)
-      //     .unreadMessages
-      // );
     }
   }
   catch(err){
@@ -221,9 +189,7 @@ io.on("connection", async (socket) => {
         sent: new Date(),
         _id: msgId,
       };
-      ack({
-        _id: msgId,
-      });
+      let delivered;
       console.log("addmessage", newMessage);
       if (
         contact.currentSocketId &&
@@ -233,18 +199,32 @@ io.on("connection", async (socket) => {
           "receiveMessage",
           newMessage
         );
+        delivered = new Date();
       }
+      ack({
+        _id: msgId,
+        delivered
+      });
       updateMessageInDatabase(user, contact, newMessage);
     } catch (err) {
       console.log("sending personal message failed", err.message, data);
     }
   });
-  socket.on("clearUnreadMessages", (data, sendAck) => {
-    console.log("clear unread messages of", data.userId);
+  socket.on("clearUnreadMessages", async (data, sendAck) => {
     try {
       clearUnreadMessages(user, data.userId);
       sendAck("cleared unread messages");
       // update sender about messages read
+      let contact = await User.findById(data.userId);
+      console.log("clear unread messages of", contact.email);
+      if(contact && contact.currentSocketId && io.sockets.sockets[contact.currentSocketId]){
+        console.log("update sender about messages read")
+        io.sockets.sockets[contact.currentSocketId].emit("msgsSeen", {
+          userId: user._id,
+          email: user.email,
+          time: new Date()
+        })
+      }
     } catch (err) {
       sendAck("failed to clear unread messages");
       console.log("clearing unread message failed", err.message, data);

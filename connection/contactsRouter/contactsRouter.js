@@ -8,8 +8,6 @@ const contactsRouter = router();
 contactsRouter.use(authMiddleware);
 
 let sortByRecentMsg = (ct1, ct2) => {
-  // let lastMsgArr1 = ct1.messages[ct1.messages.length-1], lastMsgArr2 = ct2.messages[ct2.messages.length-1];
-  // let lastMsg1 = lastMsgArr1[lastMsgArr1.length-1], lastMsg2 = lastMsgArr2[lastMsgArr2.length-1];
   let lastMsg1 = ct1.lastMessage, lastMsg2 = ct2.lastMessage;
   if(!lastMsg1)
     return 1;
@@ -30,16 +28,6 @@ contactsRouter.get('/getContacts', async (req,res)=>{
       throw "No user found";
     // make sure total msgs length doesnt exceed beyond limit
     let {contacts} = user;
-    // contacts.sort(sortByRecentMsg);
-    // contacts = contacts.slice(0,10);
-    // contacts = contacts.map(contact=> {
-    //   let recentMsgs = [];
-    //   if(contact.messages && contact.messages.length){
-    //     let lastMessageArray = contact.messages[contact.messages.length-1];
-    //     recentMsgs = lastMessageArray.slice(Math.max(0, lastMessageArray.length-5));
-    //   }
-    //   return {email: contact.email, userId: contact.userId, name: contact.name, messages: recentMsgs, unreadMessages: contact.unreadMessages};
-    // })
     let recentContacts = [];
     for(let i=0; i<contacts.length; i++){
       let contact = contacts[i];
@@ -78,7 +66,6 @@ contactsRouter.get('/getContactsList', async (req,res)=>{
     let contacts = user.contacts.map(contact=> {
       return {email: contact.email, userId: contact.userId, name: contact.name, about: contact.about};
     })
-    // console.log("contacts", contacts);
     res.json({
       contacts
     })
@@ -157,6 +144,5 @@ contactsRouter.get('/contactInfo', async (req,res)=>{
     })
   }
 })
-
 
 module.exports = contactsRouter;

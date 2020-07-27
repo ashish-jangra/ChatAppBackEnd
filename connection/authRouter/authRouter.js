@@ -3,7 +3,10 @@ const authRouter = router();
 const jwt = require("jsonwebtoken");
 const User = require("../../models/Users");
 const Messages = require("../../models/Messages");
+const { resolve } = require("path");
 const authJWTKey = require("../secret/secret").authJWTKey;
+const saltRounds = 10;
+const bcrypt = require('bcrypt');
 
 authRouter.post("/login", (req, res) => {
   console.log("login request", req.body)
@@ -11,45 +14,43 @@ authRouter.post("/login", (req, res) => {
     from: "admin@chatapp.com",
     msg: "Welcome to chat app"
   }
-  User.findOne({ email: req.body.email, password: req.body.password })
+  User.findOne({ email: req.body.email })
     .then(async (data) => {
       if (!data) {
         console.log("user doesnt exist");
-        try{
-          let messages = new Messages();
-          messages.messages = [newMsg];
-          let {id: messagesId} = await messages.save();
-          let user = new User({
-            name: req.body.name,
-            email: req.body.email,
-            password: req.body.password,
-            contacts: [
-              {
-                name: "admin",
-                email: "admin@chatapp.com",
-                userId: "5f01efb80d6de10ae98a6d3f",
-                messagesId,
-              },
-            ],
-          });
-          data = await user.save();
-          let admin = await User.findOne({
-            name: "admin",
-            email: "admin@chatapp.com",
-            password: "admin",
-          });
-          admin.contacts = admin.contacts || [];
-          admin.contacts.push({
-            name: data.name,
-            email: data.email,
-            userId: data._id,
-            messagesId,
-          });
-          await admin.save();
-          console.log("added user", data);
-        }
-        catch(err){
-          console.log("error while saving new user", err);
+        let messages = new Messages();
+        messages.messages = [newMsg];
+        let {id: messagesId} = await messages.save();
+        let user = new User({
+          name: req.body.name,
+          email: req.body.email,
+          password: bcrypt.hashSync(req.body.password, saltRounds),
+          contacts: [
+            {
+              name: "admin",
+              email: "admin@chatapp.com",
+              userId: "5f1f45b0a0ced83a5d202e28",
+              messagesId,
+            },
+          ],
+        });
+        data = await user.save();
+        let admin = await User.findOne({
+          email: "admin@chatapp.com"
+        });
+        admin.contacts = admin.contacts || [];
+        admin.contacts.push({
+          name: data.name,
+          email: data.email,
+          userId: data._id,
+          messagesId,
+        });
+        await admin.save();
+        console.log("added user", data);
+      }
+      else{
+        if(!bcrypt.compareSync(req.body.password, data.password)){
+          throw new Error("Invalid credentails");
         }
       }
       let cookieOptions = {
@@ -74,10 +75,10 @@ authRouter.post("/login", (req, res) => {
       });
     })
     .catch((err) => {
-      console.log("failed to save user data", err.message);
+      console.log("failed to login", err.message);
       res.json({
         isAuth: false,
-        error: err,
+        error: err.message,
       });
     });
 });
