@@ -3,22 +3,29 @@ const authRouter = router();
 const jwt = require("jsonwebtoken");
 const User = require("../../models/Users");
 const Messages = require("../../models/Messages");
-const { resolve } = require("path");
+const crypto = require('crypto');
 const authJWTKey = require("../secret/secret").authJWTKey;
 const saltRounds = 10;
 const bcrypt = require('bcrypt');
+const encrypt = require("../security/encrypt");
 
 authRouter.post("/login", (req, res) => {
   console.log("login request", req.body)
-  let newMsg = {
-    from: "admin@chatapp.com",
-    msg: "Welcome to chat app"
-  }
+  if(typeof req.body.email === "string")
+    req.body.email = req.body.email.toLowerCase()
+  else
+    return res.json({error: "Invalid request body format"})
   User.findOne({ email: req.body.email })
     .then(async (data) => {
       if (!data) {
         console.log("user doesnt exist");
         let messages = new Messages();
+        messages.key = crypto.randomBytes(32).toString('hex');
+        messages.iv = crypto.randomBytes(16).toString('hex');
+        let newMsg = {
+          from: "admin@chatapp.com",
+          msg: encrypt("Welcome to chat app", messages.key, messages.iv)
+        }
         messages.messages = [newMsg];
         let {id: messagesId} = await messages.save();
         let user = new User({
@@ -35,6 +42,7 @@ authRouter.post("/login", (req, res) => {
           ],
         });
         data = await user.save();
+        // lock admin data shared access
         let admin = await User.findOne({
           email: "admin@chatapp.com"
         });
@@ -46,6 +54,7 @@ authRouter.post("/login", (req, res) => {
           messagesId,
         });
         await admin.save();
+        // free the lock
         console.log("added user", data);
       }
       else{

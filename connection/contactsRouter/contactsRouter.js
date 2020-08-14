@@ -2,6 +2,7 @@ const router = require('router');
 const authMiddleware = require('../middlewares/authMiddleware');
 const User = require('../../models/Users');
 const Messages = require('../../models/Messages');
+const crypto = require('crypto');
 
 const contactsRouter = router();
 
@@ -31,13 +32,15 @@ contactsRouter.get('/getContacts', async (req,res)=>{
     let recentContacts = [];
     for(let i=0; i<contacts.length; i++){
       let contact = contacts[i];
-      let messages = await Messages.findById(contact.messagesId) || {messages: []};
-      messages = messages.messages.slice(-5);
+      let messageGroup = await Messages.findById(contact.messagesId) || {messages: []};
+      let messages = messageGroup.messages.slice(-5);
       recentContacts.push({
         email: contact.email,
         userId: contact.userId,
         name: contact.name,
         messages,
+        key: messageGroup.key,
+        iv: messageGroup.iv,
         lastMessage: messages[messages.length-1] || undefined,
         unreadMessages: contact.unreadMessages
       })
@@ -79,6 +82,7 @@ contactsRouter.get('/getContactsList', async (req,res)=>{
 })
 
 contactsRouter.post('/addContact', async (req,res)=>{
+  // lock adding contact to avoid duplication of contacts
   console.log("addcontact", req.body)
   try{
     let userId = req.cookies.userId;
@@ -89,6 +93,8 @@ contactsRouter.post('/addContact', async (req,res)=>{
     if(user.contacts.find(ct => ct.email === contact.email))
       throw new Error("contact already exists");
     let messages = new Messages();
+    messages.key = crypto.randomBytes(36).toString('hex');
+    messages.iv = crypto.randomBytes(36).toString('hex');
     messages.messages = [];
     messages = await messages.save();
     let newContact = {

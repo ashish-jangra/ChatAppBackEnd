@@ -12,6 +12,8 @@ const MsgSchema = new Schema({
 })
 
 const MessagesSchema = new Schema({
+  iv: String,
+  key: String,
   messages: {
     type: [MsgSchema],
     default: []
